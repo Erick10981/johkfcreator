@@ -98,6 +98,21 @@ footer{padding:0 0 32px;color:var(--muted);font-size:.9rem;text-align:center}
 @media print{body *{visibility:hidden}#paper,#paper *{visibility:visible}#paper{position:absolute;left:0;top:0;transform:none!important}.ph{display:none}@page{size:A4;margin:0}}
 #cv .layout>*{min-width:0}
 #cv [hidden]{display:none!important}
+#avis .avsum{color:var(--muted);margin:0 0 4px;font-weight:600}
+#avis .avgrid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));margin:12px 0 24px}
+#avis .avcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+#avis .av-stars{color:#B7791F;font-size:1.2rem;letter-spacing:2px}
+#avis .avcard p{margin:6px 0 10px}
+#avis .av-name{color:var(--muted);font-size:.9rem;font-weight:600}
+#avis .av-empty{color:var(--muted);grid-column:1/-1;margin:0}
+#avis .avform{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:560px}
+#avis label{display:block;font-size:.85rem;color:var(--muted);margin:10px 0 3px}
+#avis input,#avis textarea,#avis select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+#avis textarea{min-height:90px}
+#avis .chk{display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-size:.9rem}
+#avis .chk input{width:auto;margin-top:4px}
+#avis [hidden]{display:none!important}
+
 #cv .ttl{font-size:1.9rem;margin:0 0 4px}
 #modeles .tgrid{display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
 #modeles .tcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px}
@@ -217,6 +232,20 @@ dialog#zoom::backdrop{background:rgba(0,0,0,.65)}
   </ol>
 </section>
 
+<section id="avis"><div class="wrap">
+<h2>Avis de nos clients</h2>
+<p id="avisSummary" class="avsum"></p>
+<div id="avisList" class="avgrid" aria-live="polite"></div>
+<div id="avisForm" class="avform" hidden>
+<h3 style="margin:0 0 4px">Vous avez commandé un CV ? Donnez votre avis</h3>
+<label for="avNom">Prénom et initiale (ex. : Hery R.)</label><input id="avNom" maxlength="60" autocomplete="given-name">
+<label for="avNote">Note</label><select id="avNote"><option value="5">5 sur 5 - Excellent</option><option value="4">4 sur 5 - Très bien</option><option value="3">3 sur 5 - Bien</option><option value="2">2 sur 5 - Moyen</option><option value="1">1 sur 5 - Décevant</option></select>
+<label for="avCom">Votre avis</label><textarea id="avCom" maxlength="600"></textarea>
+<label for="avCmd">Numéro de commande (facultatif, pour le badge « Client vérifié »)</label><input id="avCmd" maxlength="12">
+<label class="chk"><input type="checkbox" id="avOk"> J’accepte que mon avis soit publié sur le site après vérification.</label>
+<p class="actions" style="margin-top:12px"><button class="btn" id="avSend" type="button">Envoyer mon avis</button></p>
+<p class="note" id="avMsg" role="status" aria-live="polite"></p>
+</div></div></section>
 <section id="contact" style="border:0;padding-top:0">
   <div class="contact">
     <h2 style="margin-bottom:10px">Prêt à décrocher votre prochain poste ?</h2>
@@ -315,6 +344,39 @@ orderBtn.addEventListener("click", async () => {
     const j = await r.json(); if (!j.ok) throw new Error(j.error || "erreur");
     orderMsg.textContent = "Commande n° " + j.id + " envoyée. Nous vous contactons sur WhatsApp pour le paiement et la livraison de votre CV en PDF.";
   } catch (err) { orderMsg.textContent = "Envoi impossible pour le moment. Utilisez le bouton WhatsApp."; orderBtn.disabled = false; }
+});
+const AVIS_STATIQUES = []; /* avis ajoutés à la main : { nom: "Prénom N.", note: 5, commentaire: "..." } */
+const avList = document.getElementById("avisList"), avSum = document.getElementById("avisSummary"), avForm = document.getElementById("avisForm"), avMsg = document.getElementById("avMsg");
+function showAvis(list) {
+  avList.textContent = "";
+  if (!list.length) { const p = document.createElement("p"); p.className = "av-empty"; p.textContent = "Les avis de nos clients apparaîtront ici. Soyez le premier à donner votre avis !"; avList.appendChild(p); avSum.textContent = ""; return; }
+  const avg = list.reduce((a, x) => a + x.note, 0) / list.length;
+  avSum.textContent = avg.toFixed(1).replace(".", ",") + " / 5 · " + list.length + " avis";
+  list.forEach(x => {
+    const d = document.createElement("article"); d.className = "avcard";
+    const st = document.createElement("div"); st.className = "av-stars"; st.setAttribute("role", "img"); st.setAttribute("aria-label", x.note + " sur 5"); st.textContent = "★".repeat(x.note) + "☆".repeat(5 - x.note);
+    const t = document.createElement("p"); t.textContent = x.commentaire;
+    const n = document.createElement("div"); n.className = "av-name"; n.textContent = x.nom + (x.verifie ? " · Client vérifié" : "");
+    d.append(st, t, n); avList.appendChild(d);
+  });
+}
+showAvis(AVIS_STATIQUES);
+if (ORDER_URL) {
+  avForm.hidden = false;
+  fetch(ORDER_URL + "?action=avis").then(r => r.json()).then(j => { if (j && j.ok) showAvis(AVIS_STATIQUES.concat(j.avis.map(a => ({ nom: a.nom, note: a.note, commentaire: a.commentaire, verifie: a.verifie })))); }).catch(() => {});
+}
+document.getElementById("avSend").addEventListener("click", async () => {
+  const nom = document.getElementById("avNom").value.trim(), com = document.getElementById("avCom").value.trim();
+  if (!nom || com.length < 10) { avMsg.textContent = "Indiquez votre prénom et un avis d’au moins 10 caractères."; return; }
+  if (!document.getElementById("avOk").checked) { avMsg.textContent = "Cochez la case pour autoriser la publication de votre avis."; return; }
+  const btn = document.getElementById("avSend"); btn.disabled = true; avMsg.textContent = "Envoi en cours…";
+  try {
+    const r = await fetch(ORDER_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type: "avis", nom: nom, note: document.getElementById("avNote").value, commentaire: com, commande: document.getElementById("avCmd").value }) });
+    const j = await r.json(); if (!j.ok) throw new Error(j.error || "erreur");
+    avMsg.textContent = "Merci ! Votre avis sera publié après vérification.";
+    ["avNom", "avCom", "avCmd"].forEach(id => { document.getElementById(id).value = ""; }); document.getElementById("avOk").checked = false;
+  } catch (err) { avMsg.textContent = "Envoi impossible pour le moment. Réessayez plus tard."; }
+  btn.disabled = false;
 });
 })();
 </script>
